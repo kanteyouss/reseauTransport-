@@ -2,26 +2,62 @@ package com.ReseauTransportUrbain.ReseauTransportUrbain.service;
 
 import com.ReseauTransportUrbain.ReseauTransportUrbain.dto.BusRequestDto;
 import com.ReseauTransportUrbain.ReseauTransportUrbain.dto.BusResponseDto;
+import com.ReseauTransportUrbain.ReseauTransportUrbain.dto.ConducteurResponseDto;
+import com.ReseauTransportUrbain.ReseauTransportUrbain.dto.LigneResponseDto;
+import com.ReseauTransportUrbain.ReseauTransportUrbain.dto.RequestDto;
+import com.ReseauTransportUrbain.ReseauTransportUrbain.dto.ResponseDto;
 import com.ReseauTransportUrbain.ReseauTransportUrbain.entity.Bus;
-import com.ReseauTransportUrbain.ReseauTransportUrbain.entity.Conducteur;
-import com.ReseauTransportUrbain.ReseauTransportUrbain.entity.Ligne;
 import com.ReseauTransportUrbain.ReseauTransportUrbain.repository.BusRepository;
+import com.ReseauTransportUrbain.ReseauTransportUrbain.repository.ConducteurRepository;
+import com.ReseauTransportUrbain.ReseauTransportUrbain.repository.LigneRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-
+/**
+ * Service métier gérant les Bus.
+ * Fournit les opérations CRUD et les conversions entité/DTO.
+ * L'entité Bus ne porte que les identifiants ligneId et conducteurId :
+ * la conversion résout donc la ligne et le conducteur auprès de leur repository.
+ * La lecture (getAll, getById) et la suppression sont héritées
+ * de {@link AbstractCrudService}.
+ */
 @Service
-public class BusService {
+public class BusService extends AbstractCrudService {
     private final BusRepository busRepository;
+    private final LigneRepository ligneRepository;
+    private final ConducteurRepository conducteurRepository;
     private final LigneService ligneService;
     private final ConducteurService conducteurService;
 
-    public BusService(BusRepository busRepository, LigneService ligneService, ConducteurService conducteurService) {
+    /**
+     * Constructeur injectant les repositories et services de conversion.
+     *
+     * @param busRepository le repository des bus
+     * @param ligneRepository le repository des lignes
+     * @param conducteurRepository le repository des conducteurs
+     * @param ligneService le service des lignes (conversion)
+     * @param conducteurService le service des conducteurs (conversion)
+     */
+    public BusService(BusRepository busRepository,
+                      LigneRepository ligneRepository,
+                      ConducteurRepository conducteurRepository,
+                      LigneService ligneService,
+                      ConducteurService conducteurService) {
+        super(busRepository);
         this.busRepository = busRepository;
+        this.ligneRepository = ligneRepository;
+        this.conducteurRepository = conducteurRepository;
         this.ligneService = ligneService;
         this.conducteurService = conducteurService;
     }
 
+    /**
+     * Construit une entité Bus à partir des données de la requête.
+     *
+     * @param busRequest Les données de la requête (BusRequestDto)
+     * @param ligneId L'identifiant de la ligne associée
+     * @param conducteurId L'identifiant du conducteur associé
+     * @return L'entité Bus construite
+     */
     public Bus toEntity(BusRequestDto busRequest, Long ligneId, Long conducteurId) {
         Bus bus = new Bus();
         bus.setCode(busRequest.getCode());
@@ -32,57 +68,62 @@ public class BusService {
         return bus;
     }
 
-    public BusResponseDto toDto(Bus bus) {
+    /**
+     * Convertit une entité Bus en DTO de réponse, avec sa ligne et son conducteur.
+     *
+     * @param entity L'entité Bus à convertir
+     * @return L'objet ResponseDto correspondant
+     */
+    @Override
+    public ResponseDto toDto(Object entity) {
+        Bus bus = (Bus) entity;
         BusResponseDto dto = new BusResponseDto();
         dto.setId(bus.getId());
         dto.setCode(bus.getCode());
         dto.setCapacite(bus.getCapacite());
         dto.setDepot(bus.getDepot());
-        return dto;
-    }
-
-    public BusResponseDto toDto(Bus bus, Ligne ligne, Conducteur conducteur) {
-        BusResponseDto dto = toDto(bus);
-        if (ligne != null) {
-            dto.setLigne(ligneService.toDto(ligne));
+        if (bus.getLigneId() != null) {
+            ligneRepository.findById(bus.getLigneId()).ifPresent(ligne ->
+                    dto.setLigne((LigneResponseDto) ligneService.toDto(ligne)));
         }
-        if (conducteur != null) {
-            dto.setConducteur(conducteurService.toDto(conducteur));
+        if (bus.getConducteurId() != null) {
+            conducteurRepository.findById(bus.getConducteurId()).ifPresent(conducteur ->
+                    dto.setConducteur((ConducteurResponseDto) conducteurService.toDto(conducteur)));
         }
         return dto;
     }
 
-    public List<BusResponseDto> getAllBus() {
-        return busRepository.findAllWithRelations().stream()
-                .map(r -> toDto((Bus) r[0], (Ligne) r[1], (Conducteur) r[2]))
-                .toList();
-    }
-
-    public BusResponseDto getBusById(Long id) {
-        Object[] r = busRepository.findByIdWithRelations(id).stream().findFirst().orElseThrow(() -> new RuntimeException("Bus non trouvé"));
-        return toDto((Bus) r[0], (Ligne) r[1], (Conducteur) r[2]);
-    }
-
-    public BusResponseDto createBus(BusRequestDto busRequest) {
+    /**
+     * Crée une nouvelle entité Bus à partir des données fournies.
+     *
+     * @param request Les données de la requête (BusRequestDto)
+     * @return L'objet ResponseDto correspondant au bus créé
+     */
+    @Override
+    public ResponseDto create(RequestDto request) {
+        BusRequestDto busRequest = (BusRequestDto) request;
         Bus bus = toEntity(busRequest, busRequest.getLigneId(), busRequest.getConducteurId());
-        busRepository.save(bus);
-        return getBusById(bus.getId());
+        return toDto(busRepository.save(bus));
     }
 
-    public BusResponseDto updateBusById(Long id, BusRequestDto busRequest) {
-        Bus bus = busRepository.findById(id).orElseThrow(() -> new RuntimeException("Bus non trouvé"));
+    /**
+     * Met à jour l'entité Bus existante à partir des données fournies.
+     *
+     * @param id L'identifiant de l'entité Bus à modifier
+     * @param request Les données de la requête (BusRequestDto)
+     * @return L'objet ResponseDto correspondant au bus modifié
+     * @throws RuntimeException Si l'entité Bus n'existe pas
+     */
+    @Override
+    public ResponseDto update(Long id, RequestDto request) {
+        BusRequestDto busRequest = (BusRequestDto) request;
+        Bus bus = busRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Bus non trouvé"));
         bus.setCode(busRequest.getCode());
         bus.setCapacite(busRequest.getCapacite());
         bus.setDepot(busRequest.getDepot());
         bus.setLigneId(busRequest.getLigneId());
         bus.setConducteurId(busRequest.getConducteurId());
-        busRepository.save(bus);
-        return getBusById(id);
-    }
-
-    public BusResponseDto deleteBusById(Long id) {
-        BusResponseDto dto = getBusById(id);
-        busRepository.deleteById(id);
-        return dto;
+        return toDto(busRepository.save(bus));
     }
 }

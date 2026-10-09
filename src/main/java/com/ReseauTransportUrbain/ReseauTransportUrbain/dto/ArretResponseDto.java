@@ -2,7 +2,7 @@ package com.ReseauTransportUrbain.ReseauTransportUrbain.dto;
 
 import java.math.BigDecimal;
 
-public class ArretResponseDto {
+public class ArretResponseDto implements ResponseDto {
     private Long id;
     private String nom;
     private String commune;

@@ -1,6 +1,6 @@
 package com.ReseauTransportUrbain.ReseauTransportUrbain.dto;
 
-public class BusResponseDto {
+public class BusResponseDto implements ResponseDto {
     private Long id;
     private String code;
     private Integer capacite;

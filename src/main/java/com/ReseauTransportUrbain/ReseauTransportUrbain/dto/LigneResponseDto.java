@@ -1,6 +1,6 @@
 package com.ReseauTransportUrbain.ReseauTransportUrbain.dto;
 
-public class LigneResponseDto {
+public class LigneResponseDto implements ResponseDto {
     private Long id;
     private String code;
     private String zone;

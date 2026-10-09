@@ -2,7 +2,7 @@ package com.ReseauTransportUrbain.ReseauTransportUrbain.dto;
 
 import java.time.LocalDateTime;
 
-public class CourseResponseDto {
+public class CourseResponseDto implements ResponseDto {
     private Long id;
     private LocalDateTime heureDepart;
     private LocalDateTime heureFin;

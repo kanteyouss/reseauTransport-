@@ -1,6 +1,6 @@
 package com.ReseauTransportUrbain.ReseauTransportUrbain.dto;
 
-public class ConducteurResponseDto {
+public class ConducteurResponseDto implements ResponseDto {
     private Long id;
     private String nom;
     private String matricule;
